@@ -160,13 +160,13 @@ enum flag : unsigned int {
 /* Configuration options. */
 struct options {
 	const std::function<void(string_view&&)> first_argument_func;
-	const std::string help_intro;
-	const std::string help_outro;
+	const char* help_intro;
+	const char* help_outro;
 	const int exit_code;
 	const flag flags;
 
-	inline options(std::string&& help_intro = ""
-			, std::string&& help_outro = ""
+	inline options(const char* help_intro = ""
+			, const char* help_outro = ""
 			, flag flags = DEFAULT_FLAGS
 			, const std::function<void(string_view&&)>& first_argument_func
 					= [](string_view&&){}
@@ -265,8 +265,8 @@ inline void argument::asserts() {
 	//		&& "One does not simply use spaces in his arguments.");
 }
 
-inline options::options(std::string&& help_intro
-		, std::string&& help_outro
+inline options::options(const char* help_intro
+		, const char* help_outro
 		, flag flags
 		, const std::function<void(string_view&&)>& first_argument_func
 		, int exit_code)
