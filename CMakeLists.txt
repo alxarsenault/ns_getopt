@@ -9,7 +9,7 @@ target_include_directories(${PROJECT_NAME} INTERFACE include/)
 
 #set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Werror -Wpedantic ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic ${CMAKE_CXX_FLAGS}")
 
 add_executable(${PROJECT_NAME}_example example/main.cpp)
 target_link_libraries(${PROJECT_NAME}_example ${PROJECT_NAME})
@@ -17,3 +17,5 @@ target_link_libraries(${PROJECT_NAME}_example ${PROJECT_NAME})
 add_executable(custom_buffer example/custom_buffer.cpp)
 target_link_libraries(custom_buffer ${PROJECT_NAME})
 
+add_executable(custom_string example/custom_string.cpp)
+target_link_libraries(custom_string ${PROJECT_NAME})

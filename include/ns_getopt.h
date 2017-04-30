@@ -41,6 +41,7 @@
 #include <vector>
 #include <cassert>
 #include <cstring>
+#include <utility>
 
 namespace opt {
 
@@ -54,36 +55,95 @@ enum class type : std::uint8_t {
 	, raw_arg
 };
 
+template<typename charT>
+class basic_string_view {
+public:
+	typedef charT value_type;
+	typedef charT* pointer;
+	typedef const charT* const_pointer;
+	typedef charT& reference;
+	typedef const charT& const_reference;
+	typedef std::size_t size_type;
+
+	inline basic_string_view(const charT* str)
+		: _data(str)
+		, _size(strlen(str))
+	{}
+
+	inline basic_string_view(const charT* str, size_type len)
+		: _data(str)
+		, _size(len)
+	{}
+
+	const_pointer begin() const noexcept {
+		_data;
+	}
+
+	const_pointer end() const noexcept {
+		_data + _size;
+	}
+
+	const_pointer cbegin() const noexcept {
+		_data;
+	}
+
+	const_pointer cend() const noexcept {
+		_data + _size;
+	}
+
+	size_type size() const noexcept {
+		return _size;
+	}
+
+	bool empty() const noexcept {
+		return _size;
+	}
+
+	std::string to_string() const {
+		return std::string(_data, size);
+	}
+
+	friend std::ostream& operator<< (std::ostream& stream, const basic_string_view& sv) {
+		stream.write(sv._data, sv._size);
+		return stream;
+	}
+private:
+	const_pointer _data;
+	std::size_t _size;
+};
+
+typedef basic_string_view<char> string_view;
+
 /* User argument. */
 struct argument {
 	const std::function<void()> no_arg_func;
-	const std::function<void(std::string&&)> one_arg_func;
-	const std::function<void(std::vector<std::string>&&)> multi_arg_func;
-	const std::string long_arg;
-	const std::string description;
-	const std::string default_arg;
+	const std::function<void(string_view&&)> one_arg_func;
+	const std::function<void(std::vector<string_view>&&)> multi_arg_func;
+	const char* long_arg;
+	const char* description;
+	const char* default_arg;
 	int raw_arg_pos;
 	const char short_arg;
 	const type arg_type;
 	bool parsed;
 
-	inline argument(std::string&& long_arg
+	inline argument(const char* long_arg
 			, type arg_type
 			, const std::function<void()>& no_arg_func
-			, std::string&& description = ""
+			, const char* description = ""
 			, char&& short_arg = '\0');
 
-	inline argument(std::string&& long_arg
+	inline argument(const char* long_arg
 			, type arg_type
-			, const std::function<void(std::string&&)>& one_arg_func
-			, std::string&& description = ""
+			, const std::function<void(string_view&&)>& one_arg_func
+			, const char* description = ""
 			, char&& short_arg = '\0'
-			, std::string&& default_arg = "");
+			, const char* default_arg = "");
 
-	inline argument(std::string&& long_arg
+	inline argument(const char* long_arg
 			, type arg_type
-			, const std::function<void(std::vector<std::string>&&)>&
-			, std::string&& description = ""
+			, const std::function<void(std::vector<string_view>&&)>&
+			, const char* description = ""
 			, char&& short_arg = '\0');
 
 	inline void asserts();
@@ -99,7 +159,7 @@ enum flag : unsigned int {
 
 /* Configuration options. */
 struct options {
-	const std::function<void(std::string&&)> first_argument_func;
+	const std::function<void(string_view&&)> first_argument_func;
 	const std::string help_intro;
 	const std::string help_outro;
 	const int exit_code;
@@ -108,21 +168,24 @@ struct options {
 	inline options(std::string&& help_intro = ""
 			, std::string&& help_outro = ""
 			, flag flags = DEFAULT_FLAGS
-			, const std::function<void(std::string&&)>& first_argument_func
-					= [](std::string&&){}
+			, const std::function<void(string_view&&)>& first_argument_func
+					= [](string_view&&){}
 			, int exit_code = -1);
 };
 
-inline void print_help(const std::vector<argument>& args, const char* arg0,
+template<std::size_t  args_size>
+inline void print_help(const argument(&args)[args_size], const char* arg0,
 		const options& option);
 
+template<std::size_t  args_size>
 inline bool parse_arguments(int argc, char const* const* argv,
-		std::vector<argument>& args, const options& option = {});
+		argument(&args)[args_size], const options& option = {});
 
 namespace {
 	void print_description(const std::string& s, size_t indentation);
-
-	inline bool do_exit(std::vector<argument>& args, const options& option
+	
+	template<std::size_t args_size>
+	inline bool do_exit(const argument (&args)[args_size], const options& option
 			, const char* arg0);
 
 	inline bool _compare_no_case(unsigned char lhs, unsigned char rhs);
@@ -140,10 +203,10 @@ namespace {
 
 /* Implementation details. */
 
-inline argument::argument(std::string&& long_arg
+inline argument::argument(const char* long_arg
 		, type arg_type
 		, const std::function<void()>& no_arg_func
-		, std::string&& description
+		, const char* description
 		, char&& short_arg)
 	: no_arg_func(no_arg_func)
 	, long_arg(long_arg)
@@ -158,12 +221,12 @@ inline argument::argument(std::string&& long_arg
 	asserts();
 }
 
-inline argument::argument(std::string&& long_arg
+inline argument::argument(const char* long_arg
 		, type arg_type
-		, const std::function<void(std::string&&)>& one_arg_func
-		, std::string&& description
+		, const std::function<void(string_view&&)>& one_arg_func
+		, const char* description
 		, char&& short_arg
-		, std::string&& default_arg)
+		, const char* default_arg)
 	: one_arg_func(one_arg_func)
 	, long_arg(long_arg)
 	, description(description)
@@ -180,10 +243,10 @@ inline argument::argument(std::string&& long_arg
 	asserts();
 }
 
-inline argument::argument(std::string&& long_arg
+inline argument::argument(const char* long_arg
 		, type arg_type
-		, const std::function<void(std::vector<std::string>&&)>& multi_arg_func
-		, std::string&& description
+		, const std::function<void(std::vector<string_view>&&)>& multi_arg_func
+		, const char* description
 		, char&& short_arg)
 	: multi_arg_func(multi_arg_func)
 	, long_arg(long_arg)
@@ -198,14 +261,14 @@ inline argument::argument(std::string&& long_arg
 }
 
 inline void argument::asserts() {
-	assert(long_arg.find(" ") == std::string::npos
-			&& "One does not simply use spaces in his arguments.");
+	//assert(long_arg.find(" ") == std::string::npos
+	//		&& "One does not simply use spaces in his arguments.");
 }
 
 inline options::options(std::string&& help_intro
 		, std::string&& help_outro
 		, flag flags
-		, const std::function<void(std::string&&)>& first_argument_func
+		, const std::function<void(string_view&&)>& first_argument_func
 		, int exit_code)
 	: first_argument_func(first_argument_func)
 	, help_intro(help_intro)
@@ -214,7 +277,8 @@ inline options::options(std::string&& help_intro
 	, flags(flags)
 {}
 
-inline void print_help(const std::vector<argument>& args, const char* arg0
+template<std::size_t  args_size>
+inline void print_help(const argument(&args)[args_size], const char* arg0
 		, const options& option) {
 	const size_t first_space = 1;
 	const size_t sa_width = 4;
@@ -228,17 +292,16 @@ inline void print_help(const std::vector<argument>& args, const char* arg0
 	const std::string default_beg = " < =";
 	const std::string default_end = ">";
 
-	std::cout << option.help_intro;
-	std::cout << std::endl;
+	std::cout << option.help_intro << std::endl;
 
 	bool print_help_without_args = has_flag(option.flags, PRINT_HELP_WITHOUT_ARGS);
-
+	
 	/* Usage. */
 	std::string raw_args = "";
 	bool first = !print_help_without_args;
 	for (const auto& x : args) {
 		if (x.arg_type == type::raw_arg) {
-			raw_args += (first ? " [" : " ") + x.long_arg;
+			raw_args += (first ? " [" : " ") + std::string(x.long_arg);
 			first = false;
 		}
 	}
@@ -256,7 +319,7 @@ inline void print_help(const std::vector<argument>& args, const char* arg0
 		if (x.arg_type != type::raw_arg)
 			continue;
 
-		size_t s = x.long_arg.size() + ra_space;
+		size_t s = strlen(x.long_arg) + ra_space;
 		if (s > name_width)
 			name_width = s;
 	}
@@ -277,13 +340,14 @@ inline void print_help(const std::vector<argument>& args, const char* arg0
 		if (x.arg_type == type::raw_arg)
 			continue;
 
-		size_t s = 2 + x.long_arg.size() + la_space;
+		/// @todo This is a slow down compare to std::string::size()
+		size_t s = 2 + strlen(x.long_arg) + la_space;
 		if (x.arg_type == type::optional_arg) {
 			s += opt_str.size();
 		} else if (x.arg_type == type::required_arg) {
 			s += req_str.size();
 		} else if (x.arg_type == type::default_arg) {
-			s += default_beg.size() + x.default_arg.size() + default_end.size();
+			s += default_beg.size() + strlen(x.default_arg) + default_end.size();
 		} else if (x.arg_type == type::multi_arg) {
 			s += multi_str.size();
 		}
@@ -309,7 +373,7 @@ inline void print_help(const std::vector<argument>& args, const char* arg0
 			std::cout << std::setw(sa_width) << "";
 		}
 
-		std::string la_str = "--" + x.long_arg;
+		std::string la_str = "--" + std::string(x.long_arg);
 		if (x.arg_type == type::optional_arg) {
 			la_str += opt_str;
 		} else if (x.arg_type == type::required_arg) {
@@ -339,10 +403,17 @@ inline void print_help(const std::vector<argument>& args, const char* arg0
 	std::cout << std::endl;
 }
 
+template<std::size_t args_size>
+const argument* begin(const argument(&args)[args_size]) { return &args[0]; }
+	
+template<std::size_t args_size>
+const argument* end(const argument(&args)[args_size]) { return &args[0] + args_size;}
+	
 /* TODO: Equal sign. Unique args (asserts)? Required raw_args? */
-inline bool parse_arguments(int argc, char const* const* argv,
-		std::vector<argument>& args, const options& option) {
-
+template<std::size_t args_size>
+bool parse_arguments(int argc, char const* const* argv,
+		argument(&args)[args_size], const options& option) {
+	
 	/* Prepare raw_args, they are parsed in declared order. */
 	int parsed_raw_args = 0;
 	int raw_args_count = 0;
@@ -371,7 +442,7 @@ inline bool parse_arguments(int argc, char const* const* argv,
 		else if ((strncmp(argv[i], "-", 1) == 0 && strlen(argv[i]) == 2)
 				|| strncmp(argv[i], "--", 2) == 0) {
 			int found = -1;
-			for (size_t j = 0; j < args.size(); ++j) {
+			for (size_t j = 0; j < args_size; ++j) {
 				if (compare_no_case(argv[i], args[j].long_arg, 2)) {
 					found = j;
 					break;
@@ -379,7 +450,7 @@ inline bool parse_arguments(int argc, char const* const* argv,
 			}
 
 			if (found == -1) {
-				for (size_t j = 0; j < args.size(); ++j) {
+				for (size_t j = 0; j < args_size; ++j) {
 					if (argv[i][1] == args[j].short_arg) {
 						found = j;
 						break;
@@ -401,7 +472,7 @@ inline bool parse_arguments(int argc, char const* const* argv,
 
 			argument& found_arg = args[found];
 			found_arg.parsed = true;
-			std::string default_arg = found_arg.default_arg;
+//			std::string default_arg = found_arg.default_arg;
 
 			switch(found_arg.arg_type) {
 				case type::no_arg: {
@@ -425,26 +496,34 @@ inline bool parse_arguments(int argc, char const* const* argv,
 					found_arg.one_arg_func(argv[++i]);
 				} break;
 
+				/* Tricky stuff here */
 				case type::optional_arg: {
-					default_arg = "";
-				}
+					if (i + 1 >= argc) {
+						found_arg.one_arg_func(string_view(""));
+						break;
+					}
+					
+					if (strncmp(argv[i + 1], "-", 1) == 0) {
+						found_arg.one_arg_func(string_view(""));
+						break;
+					}
+					found_arg.one_arg_func(argv[++i]);
+				} break;
 				case type::default_arg: {
 					if (i + 1 >= argc) {
-						found_arg.one_arg_func(
-								std::move(default_arg));
+						found_arg.one_arg_func(string_view(found_arg.default_arg));
 						break;
 					}
 
 					if (strncmp(argv[i + 1], "-", 1) == 0) {
-						found_arg.one_arg_func(
-								std::move(default_arg));
+						found_arg.one_arg_func(string_view(found_arg.default_arg));
 						break;
 					}
 					found_arg.one_arg_func(argv[++i]);
 				} break;
 
 				case type::multi_arg: {
-					std::vector<std::string> v;
+					std::vector<string_view> v;
 					while (i + 1 < argc) {
 						if (strncmp(argv[i + 1], "-", 1) == 0) {
 							break;
@@ -464,9 +543,10 @@ inline bool parse_arguments(int argc, char const* const* argv,
 		else if (strncmp(argv[i], "-", 1) == 0 && strlen(argv[i]) > 2) {
 			std::vector<int> found_v;
 			std::string not_found = "";
+
 			for (size_t j = 1; j < strlen(argv[i]); ++j) {
 				bool found = false;
-				for (size_t k = 0; k < args.size(); ++k) {
+				for (size_t k = 0; k < args_size; ++k) {
 					if (argv[i][j] == args[k].short_arg) {
 						found_v.push_back(k);
 						found = true;
@@ -520,7 +600,7 @@ inline bool parse_arguments(int argc, char const* const* argv,
 		/* Check raw args. */
 		else if (parsed_raw_args < raw_args_count) {
 			int found = -1;
-			for (size_t j = 0; j < args.size(); ++j) {
+			for (size_t j = 0; j < args_size; ++j) {
 				if (args[j].raw_arg_pos == parsed_raw_args) {
 					found = j;
 					break;
@@ -566,7 +646,8 @@ void print_description(const std::string& s, size_t indentation) {
 	}
 }
 
-inline bool do_exit(std::vector<argument>& args, const options& option
+template<std::size_t args_size>
+inline bool do_exit(const argument (&args)[args_size], const options& option
 		, const char* arg0) {
 	print_help(args, arg0, option);
 	if (has_flag(option.flags, EXIT_ON_ERROR))
