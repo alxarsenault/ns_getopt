@@ -75,33 +75,19 @@ public:
 		, _size(len)
 	{}
 
-	const_pointer begin() const noexcept {
-		_data;
-	}
+	const_pointer begin() const noexcept { _data; }
 
-	const_pointer end() const noexcept {
-		_data + _size;
-	}
+	const_pointer end() const noexcept { _data + _size; }
 
-	const_pointer cbegin() const noexcept {
-		_data;
-	}
+	const_pointer cbegin() const noexcept { _data; }
 
-	const_pointer cend() const noexcept {
-		_data + _size;
-	}
+	const_pointer cend() const noexcept { _data + _size; }
 
-	size_type size() const noexcept {
-		return _size;
-	}
+	size_type size() const noexcept { return _size; }
 
-	bool empty() const noexcept {
-		return _size;
-	}
+	bool empty() const noexcept { return _size; }
 
-	std::string to_string() const {
-		return std::string(_data, size);
-	}
+	std::string to_string() const { return std::string(_data, size); }
 
 	friend std::ostream& operator<< (std::ostream& stream, const basic_string_view& sv) {
 		stream.write(sv._data, sv._size);
