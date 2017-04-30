@@ -14,7 +14,7 @@ void my_method(opt::string_view&& arg) {
 }
 
 int main(int argc, char* argv[]) {
-	//opt::string_view<char> sv(argv[0]);
+	std::cout << "Sizeof argument " << sizeof(opt::argument) << std::endl;
 //	bool do_something = false;
 
 	auto raw_fun = [](opt::string_view&& s) {
