@@ -27,3 +27,6 @@ target_link_libraries(${PROJECT_NAME}_example ${PROJECT_NAME})
 
 add_executable(custom_buffer example/custom_buffer.cpp)
 target_link_libraries(custom_buffer ${PROJECT_NAME})
+
+add_executable(multi_layer example/multi_layer.cpp)
+target_link_libraries(multi_layer ${PROJECT_NAME})

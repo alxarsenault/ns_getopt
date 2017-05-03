@@ -53,12 +53,19 @@ enum class type : std::uint8_t {
 	, default_arg
 	, multi_arg
 	, raw_arg
+	, cmd_arg
+};
+
+struct CommandArgs {
+	int argc;
+	char const* const* argv;
 };
 
 /* User argument. */
 struct argument {
 	const std::function<void()> no_arg_func;
 	const std::function<void(std::string&&)> one_arg_func;
+	const std::function<void(CommandArgs)> cmd_arg_func;
 	const std::function<void(std::vector<std::string>&&)> multi_arg_func;
 	const std::string long_arg;
 	const std::string description;
@@ -80,6 +87,11 @@ struct argument {
 			, std::string&& description = ""
 			, char&& short_arg = '\0'
 			, std::string&& default_arg = "");
+
+	inline argument(std::string&& long_arg
+			, type arg_type
+			, const std::function<void(CommandArgs)>& cmd_arg_func
+			, std::string&& description = "");
 
 	inline argument(std::string&& long_arg
 			, type arg_type
@@ -200,6 +212,22 @@ inline argument::argument(std::string&& long_arg
 
 inline argument::argument(std::string&& long_arg
 		, type arg_type
+		, const std::function<void(CommandArgs)>& cmd_arg_func
+		, std::string&& description)
+	: cmd_arg_func(cmd_arg_func)
+	, long_arg(long_arg)
+	, description(description)
+	, raw_arg_pos(-1)
+	, short_arg('\0')
+	, arg_type(arg_type)
+	, parsed(false)
+{
+	assert(arg_type == type::cmd_arg);
+	asserts();
+}
+
+inline argument::argument(std::string&& long_arg
+		, type arg_type
 		, const std::function<void(std::vector<std::string>&&)>& multi_arg_func
 		, std::string&& description
 		, char&& short_arg)
@@ -279,7 +307,6 @@ inline void print_help(const argument* args, size_t args_size
 			<< std::endl << std::endl;
 
 	/* Raw args. */
-	std::cout << "Arguments:" << std::endl;
 	size_t name_width = 0;
 	for (const argument* x = args; x < args + args_size; x++) {
 		if (x->arg_type != type::raw_arg)
@@ -290,14 +317,18 @@ inline void print_help(const argument* args, size_t args_size
 			name_width = s;
 	}
 
-	for (const argument* x = args; x < args + args_size; x++) {
-		if (x->arg_type != type::raw_arg)
-			continue;
-		std::cout << std::setw(first_space) << "";
-		std::cout << std::setw(name_width) << std::left << x->long_arg;
-		print_description(x->description, first_space + name_width);
+	if(name_width) {
+		std::cout << "Arguments:" << std::endl;
+
+		for (const argument* x = args; x < args + args_size; x++) {
+			if (x->arg_type != type::raw_arg)
+				continue;
+			std::cout << std::setw(first_space) << "";
+			std::cout << std::setw(name_width) << std::left << x->long_arg;
+			print_description(x->description, first_space + name_width);
+		}
+		std::cout << std::endl;
 	}
-	std::cout << std::endl;
 
 	/* Other args.*/
 	std::cout << "Options:" << std::endl;
@@ -326,7 +357,7 @@ inline void print_help(const argument* args, size_t args_size
 	}
 
 	for (const argument* x = args; x < args + args_size; x++) {
-		if (x->arg_type == type::raw_arg)
+		if (x->arg_type == type::raw_arg || x->arg_type == type::cmd_arg)
 			continue;
 
 		std::cout << std::setw(first_space) << "";
@@ -363,6 +394,28 @@ inline void print_help(const argument* args, size_t args_size
 			<< std::setw(la_width) << std::left << "--help"
 			<< "Print this help." << std::endl;
 
+	size_t cmd_name_width = 0;
+	for (const argument* x = args; x < args + args_size; x++) {
+		if (x->arg_type != type::cmd_arg)
+			continue;
+
+		size_t s = x->long_arg.size() + ra_space;
+		if (s > cmd_name_width)
+			cmd_name_width = s;
+	}
+
+	if(cmd_name_width != 0) {
+		std::cout << std::endl << "Commands:" << std::endl;
+
+		for (const argument* x = args; x < args + args_size; x++) {
+			if (x->arg_type != type::cmd_arg)
+				continue;
+			std::cout << std::setw(first_space) << "";
+			std::cout << std::setw(cmd_name_width) << std::left << x->long_arg;
+			print_description(x->description, first_space + cmd_name_width);
+		}
+	}
+
 	std::cout << std::endl;
 	std::cout << option.help_outro;
 	std::cout << std::endl;
@@ -394,6 +447,15 @@ inline bool parse_arguments(int argc, char const* const* argv
 	for (argument* x = args; x < args + args_size; x++) {
 		if (x->arg_type == type::raw_arg)
 			x->raw_arg_pos = raw_args_count++;
+	}
+
+	bool has_cmd_arg = false;
+	for (argument* x = args; x < args + args_size; x++) {
+		if (x->arg_type == type::cmd_arg) {
+			has_cmd_arg = true;
+//			std::cout << "HAS SUB ARG" << std::endl;
+			break;
+		}
 	}
 
 	for (int i = 0; i < argc; ++i) {
@@ -575,6 +637,23 @@ inline bool parse_arguments(int argc, char const* const* argv
 					return do_exit(args, args_size, option, argv[0]);
 				}
 			}
+		}
+
+		/* cmd_arg */
+		else if(has_cmd_arg) {
+			for (argument* x = args; x < args + args_size; x++) {
+				if (x->arg_type == type::cmd_arg) {
+					if(strcmp(argv[i], x->long_arg.c_str()) == 0) {
+						//found_cmd_arg_index =
+//						std::cout << "FOUND SUB ARG : " << argv[i] << "-> " << x->long_arg << std::endl;
+						x->cmd_arg_func(CommandArgs{argc - i, argv + i});
+						return true;
+					}
+				}
+			}
+
+			maybe_print_msg(option , "test problem parsing argument.");
+			return do_exit(args, args_size, option, argv[0]);
 		}
 
 		/* Check raw args. */
